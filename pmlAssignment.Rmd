@@ -1,0 +1,132 @@
+Coursera "Practical Machine Learning" Project
+========================================================
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+
+
+## Data 
+
+The training data for this project are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv
+
+The test data are available here: 
+https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv
+
+The data for this project come from this source: http://groupware.les.inf.puc-rio.br/har. 
+
+
+## Data Ingestion
+
+First we download the training and test data sets and then we load them into R
+
+```{r}
+# setwd("./R/PracticalMachineLearning/")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",destfile="./data/pml-training.csv")
+download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",destfile="./data/pml-testing.csv")
+training <- read.csv("./data/pml-training.csv")
+testing <- read.csv("./data/pml-testing.csv")
+```
+
+# Feature Selection
+In order to select the features to be used as predictor, we try to find the correlation between features and we locate those which have maximum impact on others. The training data set was already very sparse, with a lot of NA values.
+The list of most important features is the following:
+
+```{r}
+M <- abs(cor(training[sapply(training, is.numeric)]))
+diag(M) <- 0
+which(M > 0.8,arr.ind=T)
+```
+
+## Preparation for Cross-Validation
+
+In order to measure our model we partition our training set into two parts (75%, 25%)
+
+```{r}
+library(caret)
+library(randomForest)
+inTrain <- createDataPartition(training$classe,p=0.75,list=FALSE)
+train1 <- training[inTrain,]
+test1 <- training[-inTrain,]
+```
+
+
+## Prediction Models
+
+We will be using Random Forest based on the first part of training set. 
+We will compare the two options: 
+
+- random forest of caret package
+- random forest of randomForest package
+
+We will estimate errors.
+randomForest packages returns the prediction error in the results.
+For caret package, we will compare predictions towards the classe values of the second part of training set.
+
+```{r}
+library(caret)
+library(randomForest)
+
+rf1 <- train(classe ~ user_name+roll_belt+pitch_belt+yaw_belt+gyros_belt_x+gyros_belt_y+gyros_belt_z+accel_belt_x+accel_belt_y+accel_belt_z+magnet_belt_x+magnet_belt_y+magnet_belt_z+roll_arm+pitch_arm+yaw_arm+total_accel_arm+gyros_arm_x+gyros_arm_y+gyros_arm_z+accel_arm_x+accel_arm_y+accel_arm_z+magnet_arm_x+magnet_arm_y+magnet_arm_z,train1,method="rf")
+
+pred1 <- predict(rf1,test1[,-160])
+
+A <- table(pred1,test1$classe)
+error1 <- (sum(A)-sum(diag(A)))/sum(A)
+
+predRight1 <- pred1==test1$classe
+
+
+rf2 <- randomForest(formula=classe ~ user_name+roll_belt+pitch_belt+yaw_belt+gyros_belt_x+gyros_belt_y+gyros_belt_z+accel_belt_x+accel_belt_y+accel_belt_z+magnet_belt_x+magnet_belt_y+magnet_belt_z+roll_arm+pitch_arm+yaw_arm+total_accel_arm+gyros_arm_x+gyros_arm_y+gyros_arm_z+accel_arm_x+accel_arm_y+accel_arm_z+magnet_arm_x+magnet_arm_y+magnet_arm_z,data=train1,ntree=500)
+
+importance(rf2)
+
+rf2
+
+pred2 <- predict(rf1,test1[,-160])
+
+B <- table(pred2,test1$classe)
+error2 <- (sum(B)-sum(diag(B)))/sum(B)
+
+predRight2 <- pred2==test1$classe
+
+
+```
+
+## Error Estimations
+We will compare errors of random forest prediction models above:
+
+### Via caret package:
+
+Error probablity and number of correct predictions are displayed below:
+
+```{r}
+error1
+sum(predRight1)
+```
+
+### Via randomForest package:
+Error probablity and number of correct predictions are displayed below:
+
+```{r}
+error2
+sum(predRight2)
+```
+
+## Final Model
+For the final prediction we will apply random forest on the totality of the training set.
+We will keep the ntree to 500 (due to computing power limitations).
+
+```{r}
+rf3 <- randomForest(formula=classe ~ user_name+roll_belt+pitch_belt+yaw_belt+gyros_belt_x+gyros_belt_y+gyros_belt_z+accel_belt_x+accel_belt_y+accel_belt_z+magnet_belt_x+magnet_belt_y+magnet_belt_z+roll_arm+pitch_arm+yaw_arm+total_accel_arm+gyros_arm_x+gyros_arm_y+gyros_arm_z+accel_arm_x+accel_arm_y+accel_arm_z+magnet_arm_x+magnet_arm_y+magnet_arm_z, data=training,na.action=na.omit,ntree=500)
+
+importance(rf3)
+```
+
+## Final Outcome 
+
+The prediction outcome of the final model on the original test set is:
+
+```{r}
+predict(rf3,testing)
+```
+
