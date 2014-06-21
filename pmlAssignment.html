@@ -195,7 +195,7 @@ hljs.initHighlightingOnLoad();
 
 <h2>Data Ingestion</h2>
 
-<p>First we download the training and test data sets and then we load them into R</p>
+<p>First we download the training and test data sets and then we load them into R (training and testing data frames).</p>
 
 <pre><code class="r"># setwd(&#39;./R/PracticalMachineLearning/&#39;)
 download.file(&quot;https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv&quot;, 
@@ -218,7 +218,7 @@ testing &lt;- read.csv(&quot;./data/pml-testing.csv&quot;)
 
 <h1>Feature Selection</h1>
 
-<p>In order to select the features to be used as predictor, we try to find the correlation between features and we locate those which have maximum impact on others. The training data set was already very sparse, with a lot of NA values.
+<p>In order to select the features to be used as predictors, we calculate the correlation between features and we locate those which have maximum impact on others (absolute value of correlation &gt; 0.8)
 The list of most important features is the following:</p>
 
 <pre><code class="r">M &lt;- abs(cor(training[sapply(training, is.numeric)]))
@@ -269,7 +269,7 @@ which(M &gt; 0.8, arr.ind = T)
 
 <h2>Preparation for Cross-Validation</h2>
 
-<p>In order to measure our model we partition our training set into two parts (75%, 25%)</p>
+<p>In order to measure our model we partition our training set into two parts (75%, 25%): train1, test1 data frames.</p>
 
 <pre><code class="r">library(caret)
 </code></pre>
@@ -292,20 +292,9 @@ test1 &lt;- training[-inTrain, ]
 
 <h2>Prediction Models</h2>
 
-<p>We will be using Random Forest based on the first part of training set. 
-We will compare the two options: </p>
-
-<ul>
-<li>random forest of caret package</li>
-<li>random forest of randomForest package</li>
-</ul>
-
-<p>We will estimate errors.
-randomForest packages returns the prediction error in the results.
-For caret package, we will compare predictions towards the classe values of the second part of training set.</p>
+<p>We will be using Random Forest based on the first part of our training set (train1). </p>
 
 <pre><code class="r">library(caret)
-library(randomForest)
 
 rf1 &lt;- train(classe ~ user_name + roll_belt + pitch_belt + yaw_belt + gyros_belt_x + 
     gyros_belt_y + gyros_belt_z + accel_belt_x + accel_belt_y + accel_belt_z + 
@@ -313,138 +302,38 @@ rf1 &lt;- train(classe ~ user_name + roll_belt + pitch_belt + yaw_belt + gyros_b
     total_accel_arm + gyros_arm_x + gyros_arm_y + gyros_arm_z + accel_arm_x + 
     accel_arm_y + accel_arm_z + magnet_arm_x + magnet_arm_y + magnet_arm_z, 
     train1, method = &quot;rf&quot;)
+</code></pre>
 
-pred1 &lt;- predict(rf1, test1[, -160])
+<h2>Error Estimation</h2>
 
+<p>We will estimate errors by comparing predictions towards the real classe values of the second part of training set (test1).
+Error probability and number of correct predictions are displayed below:</p>
+
+<pre><code class="r">pred1 &lt;- predict(rf1, test1[, -160])
 A &lt;- table(pred1, test1$classe)
 error1 &lt;- (sum(A) - sum(diag(A)))/sum(A)
-
 predRight1 &lt;- pred1 == test1$classe
 
-
-rf2 &lt;- randomForest(formula = classe ~ user_name + roll_belt + pitch_belt + 
-    yaw_belt + gyros_belt_x + gyros_belt_y + gyros_belt_z + accel_belt_x + accel_belt_y + 
-    accel_belt_z + magnet_belt_x + magnet_belt_y + magnet_belt_z + roll_arm + 
-    pitch_arm + yaw_arm + total_accel_arm + gyros_arm_x + gyros_arm_y + gyros_arm_z + 
-    accel_arm_x + accel_arm_y + accel_arm_z + magnet_arm_x + magnet_arm_y + 
-    magnet_arm_z, data = train1, ntree = 500)
-
-importance(rf2)
+error1
 </code></pre>
 
-<pre><code>##                 MeanDecreaseGini
-## user_name                  234.8
-## roll_belt                 1396.6
-## pitch_belt                 993.9
-## yaw_belt                  1241.0
-## gyros_belt_x               188.0
-## gyros_belt_y               145.4
-## gyros_belt_z               359.7
-## accel_belt_x               224.0
-## accel_belt_y               158.8
-## accel_belt_z               526.0
-## magnet_belt_x              397.4
-## magnet_belt_y              465.0
-## magnet_belt_z              517.7
-## roll_arm                   610.9
-## pitch_arm                  432.5
-## yaw_arm                    381.9
-## total_accel_arm            193.8
-## gyros_arm_x                318.6
-## gyros_arm_y                316.1
-## gyros_arm_z                160.1
-## accel_arm_x                412.8
-## accel_arm_y                336.9
-## accel_arm_z                364.0
-## magnet_arm_x               448.4
-## magnet_arm_y               427.6
-## magnet_arm_z               383.3
+<pre><code>## [1] 0.01815
 </code></pre>
 
-<pre><code class="r">
-rf2
+<pre><code class="r">sum(predRight1)
 </code></pre>
 
-<pre><code>## 
-## Call:
-##  randomForest(formula = classe ~ user_name + roll_belt + pitch_belt +      yaw_belt + gyros_belt_x + gyros_belt_y + gyros_belt_z + accel_belt_x +      accel_belt_y + accel_belt_z + magnet_belt_x + magnet_belt_y +      magnet_belt_z + roll_arm + pitch_arm + yaw_arm + total_accel_arm +      gyros_arm_x + gyros_arm_y + gyros_arm_z + accel_arm_x + accel_arm_y +      accel_arm_z + magnet_arm_x + magnet_arm_y + magnet_arm_z,      data = train1, ntree = 500) 
-##                Type of random forest: classification
-##                      Number of trees: 500
-## No. of variables tried at each split: 5
-## 
-##         OOB estimate of  error rate: 1.68%
-## Confusion matrix:
-##      A    B    C    D    E class.error
-## A 4149   14   10   10    2    0.008602
-## B   26 2805   14    2    1    0.015098
-## C    5   68 2476   16    2    0.035450
-## D    7    3   41 2357    4    0.022803
-## E    2    9    7    4 2684    0.008130
+<pre><code>## [1] 4815
 </code></pre>
 
-<pre><code class="r">
-pred2 &lt;- predict(rf1, test1[, -160])
-
-B &lt;- table(pred2, test1$classe)
-error2 &lt;- (sum(B) - sum(diag(B)))/sum(B)
-
-predRight2 &lt;- pred2 == test1$classe
-
-</code></pre>
-
-<h2>Final Model</h2>
-
-<p>For the final prediction we will apply random forest on the totality of the training set.
-We will keep the ntree to 500 (due to computing power limitations).</p>
-
-<pre><code class="r">rf3 &lt;- randomForest(formula = classe ~ user_name + roll_belt + pitch_belt + 
-    yaw_belt + gyros_belt_x + gyros_belt_y + gyros_belt_z + accel_belt_x + accel_belt_y + 
-    accel_belt_z + magnet_belt_x + magnet_belt_y + magnet_belt_z + roll_arm + 
-    pitch_arm + yaw_arm + total_accel_arm + gyros_arm_x + gyros_arm_y + gyros_arm_z + 
-    accel_arm_x + accel_arm_y + accel_arm_z + magnet_arm_x + magnet_arm_y + 
-    magnet_arm_z, data = training, na.action = na.omit, ntree = 500)
-
-importance(rf3)
-</code></pre>
-
-<pre><code>##                 MeanDecreaseGini
-## user_name                  328.2
-## roll_belt                 1869.2
-## pitch_belt                1319.3
-## yaw_belt                  1708.6
-## gyros_belt_x               246.7
-## gyros_belt_y               191.4
-## gyros_belt_z               481.2
-## accel_belt_x               286.3
-## accel_belt_y               193.2
-## accel_belt_z               728.2
-## magnet_belt_x              525.1
-## magnet_belt_y              608.9
-## magnet_belt_z              691.7
-## roll_arm                   822.6
-## pitch_arm                  587.2
-## yaw_arm                    502.4
-## total_accel_arm            250.5
-## gyros_arm_x                426.8
-## gyros_arm_y                422.7
-## gyros_arm_z                208.1
-## accel_arm_x                551.8
-## accel_arm_y                428.7
-## accel_arm_z                475.0
-## magnet_arm_x               593.9
-## magnet_arm_y               560.2
-## magnet_arm_z               505.4
-</code></pre>
-
-<h2>Final Outcome</h2>
+<h2>Final Prediction Outcome</h2>
 
 <p>The prediction outcome of the final model on the original test set is:</p>
 
-<pre><code class="r">predict(rf3, testing)
+<pre><code class="r">predict(rf1, testing)
 </code></pre>
 
-<pre><code>##  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 
-##  B  A  B  A  A  E  D  B  A  A  B  C  B  A  E  E  A  B  B  B 
+<pre><code>##  [1] B A B A A E D B A A B C B A E E A B B B
 ## Levels: A B C D E
 </code></pre>
 
